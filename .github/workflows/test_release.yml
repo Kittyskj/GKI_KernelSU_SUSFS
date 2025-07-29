@@ -39,10 +39,10 @@ on:
         required: true
         type: choice
         options:
-        - Stable(标准)
-        - Dev(开发)
-        - Other(其他/指定)
-        default: Stable(标准)
+        - Stable(Standard)    # ИСПРАВЛЕНО
+        - Dev(Development)    # ИСПРАВЛЕНО
+        - Other(Custom)       # ИСПРАВЛЕНО
+        default: Stable(Standard) # ИСПРАВЛЕНО
       version:
         description: 'Custom version name (e.g., characters after 5.10.198 / leave blank to use default version number)'
         required: false
@@ -181,7 +181,6 @@ jobs:
           echo "--- Checking Job Statuses ---"
           echo "get_manager result: $RESULT_GET_MANAGER"
           
-          # 1. Check get_manager job only if it was supposed to run
           if [[ "${{ inputs.get_manager }}" == "true" ]]; then
             if [[ "$RESULT_GET_MANAGER" != "success" ]]; then
               SHOULD_PROCEED="false"
@@ -189,7 +188,6 @@ jobs:
             fi
           fi
           
-          # Function to check a kernel job
           check_kernel_job() {
             local kernel_id=$1
             local should_run_flag=$2
@@ -289,10 +287,8 @@ jobs:
 
           BASE_VERSION="v1.5.9"
           
-          # Fetch all existing tags using git ls-remote
           EXISTING_TAGS=$(git ls-remote --tags https://github.com/$REPO_OWNER/$REPO_NAME.git | awk '{print $2}' | sed 's/refs\/tags\///' || true)
 
-          # Find highest revision number for this base version
           MAX_REVISION=0
           while IFS= read -r tag; do
             if [[ "$tag" =~ ^$BASE_VERSION-r([0-9]+)$ ]]; then
@@ -303,24 +299,20 @@ jobs:
             fi
           done <<< "$EXISTING_TAGS"
 
-          # Generate new revision number and tag
           NEW_REVISION=$((MAX_REVISION + 1))
           NEW_TAG="$BASE_VERSION-r$NEW_REVISION"
 
           echo "New tag generated: $NEW_TAG"
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
 
-          # Optional: Check if tag already exists in remote
           if git ls-remote --exit-code --tags origin "$NEW_TAG" > /dev/null 2>&1; then
             echo "::error::Tag '$NEW_TAG' already exists in remote repository. Aborting."
             exit 1
           fi
 
-          # Configure Git
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
 
-          # Create and push new tag
           git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
           git push origin "$NEW_TAG"
 
@@ -329,31 +321,25 @@ jobs:
       - name: Set KSU Version and Release Name
         if: ${{ steps.release_check.outcome == 'success' }}
         run: |
-          # Use temporary directories to avoid conflicts
           if [ "${{ inputs.kernelsu_variant }}" = "Next" ]; then
-            echo "Processing Next variant"
             git clone https://github.com/KernelSU-Next/KernelSU-Next.git ksu-next-tmp
             cd ksu-next-tmp
             KSU_GIT_VERSION=$(git rev-list --count HEAD)
             KSU_VERSION=$((10000 + KSU_GIT_VERSION + 200))
-            echo "Next version: $KSU_VERSION"
             cd ..
             rm -rf ksu-next-tmp
             echo "RELEASE_NAME=\"GKI Kernel: KernelSU-Next ($KSU_VERSION) & SUSFS v1.5.9\"" >> $GITHUB_ENV
             
           elif [ "${{ inputs.kernelsu_variant }}" = "SukiSU" ]; then
-            echo "Processing SukiSU variant"
             git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git suki-tmp
             cd suki-tmp
             KSU_GIT_VERSION=$(git rev-list --count HEAD)
             KSU_VERSION=$((10000 + KSU_GIT_VERSION + 703))
-            echo "SukiSU version: $KSU_VERSION"
             cd ..
             rm -rf suki-tmp
             echo "RELEASE_NAME=\"GKI Kernel: SukiSU ($KSU_VERSION) & SUSFS v1.5.9\"" >> $GITHUB_ENV
             
           else
-            echo "Using default naming for variant: ${{ inputs.kernelsu_variant }}"
             echo "RELEASE_NAME=\"GKI Kernel: ${{ inputs.kernelsu_variant }} & SUSFS v1.5.9\"" >> $GITHUB_ENV
           fi
           
@@ -362,22 +348,22 @@ jobs:
         if: ${{ steps.release_check.outcome == 'success' }}
         run: |
           # Handle 'Other' branch selection
-          if [[ "${{ inputs.kernelsu_branch }}" == "Other(其他/指定)" ]]; then
+          if [[ "${{ inputs.kernelsu_branch }}" == "Other(Custom)" ]]; then # ИСПРАВЛЕНО
             echo "Using custom branch selection"
             if [[ "${{ inputs.kernelsu_variant }}" == "Official" ]]; then
               KSU_BRANCH="main"
             elif [[ "${{ inputs.kernelsu_variant }}" == "Next" ]]; then
               KSU_BRANCH="next"
             else
-              KSU_BRANCH="main"  # Default for MKSU/SukiSU
+              KSU_BRANCH="main"
             fi
-          elif [[ "${{ inputs.kernelsu_branch }}" == "Dev(开发)" || "${{ inputs.kernelsu_variant }}" == "MKSU" || "${{ inputs.kernelsu_variant }}" == "SukiSU" ]]; then
+          elif [[ "${{ inputs.kernelsu_branch }}" == "Dev(Development)" || "${{ inputs.kernelsu_variant }}" == "MKSU" || "${{ inputs.kernelsu_variant }}" == "SukiSU" ]]; then # ИСПРАВЛЕНО
             if [[ "${{ inputs.kernelsu_variant }}" == "Official" || "${{ inputs.kernelsu_variant }}" == "MKSU" || "${{ inputs.kernelsu_variant }}" == "SukiSU" ]]; then
               KSU_BRANCH="main"
             elif [[ "${{ inputs.kernelsu_variant }}" == "Next" ]]; then
               KSU_BRANCH="next"
             fi
-          elif [[ "${{ inputs.kernelsu_branch }}" == "Stable(标准)" && "${{ inputs.kernelsu_variant }}" != "MKSU" ]]; then
+          elif [[ "${{ inputs.kernelsu_branch }}" == "Stable(Standard)" && "${{ inputs.kernelsu_variant }}" != "MKSU" ]]; then # ИСПРАВЛЕНО
             KSU_REPO_URL=""
             if [ "${{ inputs.kernelsu_variant }}" == "Official" ]; then
               KSU_REPO_URL="https://github.com/tiann/KernelSU.git"
@@ -419,7 +405,7 @@ jobs:
           
           KSU_REF=""
           KSU_URL=""
-          if [[ "${{ inputs.kernelsu_branch }}" == "Stable(标准)" && "${{ inputs.kernelsu_variant }}" != "MKSU" ]]; then
+          if [[ "${{ inputs.kernelsu_branch }}" == "Stable(Standard)" && "${{ inputs.kernelsu_variant }}" != "MKSU" ]]; then # ИСПРАВЛЕНО
             TAG=$(git ls-remote --tags --sort=-v:refname "$KSU_REPO_URL" | grep -o 'refs/tags/.*' | cut -d'/' -f3 | head -n1)
             KSU_REF="${TAG:-UNKNOWN_TAG}"
             KSU_URL="https://github.com/$KSU_REPO_URL2/releases/tag/$KSU_REF"
@@ -458,126 +444,3 @@ jobs:
             ["a13-5.10"]="gki-android13-5.10"
             ["a13-5.15"]="gki-android13-5.15"
             ["a14-5.15"]="gki-android14-5.15"
-            ["a14-6.1"]="gki-android14-6.1"
-            ["a15-6.6"]="gki-android15-6.6"
-          )
-          
-          declare -a KERNELS_TO_FETCH_SUSFS
-          if [[ "${{ inputs.kernels_to_build }}" == "all" ]]; then
-            for key in "${!BRANCH_MAP[@]}"; do
-              KERNELS_TO_FETCH_SUSFS+=("$key")
-            done
-          else
-            IFS=',' read -r -a INPUT_KERNELS <<< "${{ inputs.kernels_to_build }}"
-            for kernel_input in "${INPUT_KERNELS[@]}"; do
-              case "$kernel_input" in
-                "a12")
-                  KERNELS_TO_FETCH_SUSFS+=("a12-5.10")
-                  ;;
-                "a13")
-                  KERNELS_TO_FETCH_SUSFS+=("a13-5.10" "a13-5.15")
-                  ;;
-                "a14")
-                  KERNELS_TO_FETCH_SUSFS+=("a14-5.15" "a14-6.1")
-                  ;;
-                "a15")
-                  KERNELS_TO_FETCH_SUSFS+=("a15-6.6")
-                  ;;
-                *)
-                  if [[ -n "${BRANCH_MAP[$kernel_input]}" ]]; then
-                    KERNELS_TO_FETCH_SUSFS+=("$kernel_input")
-                  else
-                    echo "Warning: Input kernel '$kernel_input' does not have a defined SUSFS branch mapping. Skipping." >&2
-                  fi
-                  ;;
-              esac
-            done
-          fi
-
-          mapfile -t SORTED_KERNELS < <(printf '%s\n' "${KERNELS_TO_FETCH_SUSFS[@]}" | sort)
-          KERNELS_TO_FETCH_SUSFS=("${SORTED_KERNELS[@]}")
-          
-          for kernel_id in "${KERNELS_TO_FETCH_SUSFS[@]}"; do
-            susfs_branch_name="${BRANCH_MAP[$kernel_id]}"
-            if [[ -n "$susfs_branch_name" ]]; then
-              SUSFS_COMMIT_HASH=$(git ls-remote "https://gitlab.com/$GITLAB_OWNER/$GITLAB_REPO.git" "refs/heads/$susfs_branch_name" | awk '{ print $1 }')
-              SUSFS_COMMIT_HASH="${SUSFS_COMMIT_HASH:-UNKNOWN_COMMIT}"
-              SUSFS_COMMIT_URL="https://gitlab.com/$GITLAB_OWNER/$GITLAB_REPO/-/commit/$SUSFS_COMMIT_HASH"
-              FINAL_RELEASE_NOTES+="\n - ${kernel_id}: [${SUSFS_COMMIT_HASH}](${SUSFS_COMMIT_URL})"
-            else
-              echo "Warning: SUSFS branch name not found for kernel ID: $kernel_id. Cannot fetch commit info." >&2
-            fi
-          done
-          
-          FINAL_RELEASE_NOTES+="\n\n</details>"
-          
-          echo "FULL_RELEASE_NOTES<<EOF" >> $GITHUB_ENV
-          echo -e "$FINAL_RELEASE_NOTES" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-          
-      - name: Download Artifacts
-        if: ${{ steps.release_check.outcome == 'success' }}
-        uses: actions/download-artifact@v4
-        with:
-          path: release-artifacts-${{ github.run_id }}
-          
-      - name: Prepare Artifacts for Upload
-        if: ${{ steps.release_check.outcome == 'success' }}
-        run: |
-          # Create a new directory for release assets
-          mkdir -p release-assets
-          
-          # Find and copy all artifacts to a flat directory structure
-          find ./release-artifacts-${{ github.run_id }} -type f -exec cp -v {} ./release-assets \;
-          
-          # Generate checksums
-          cd release-assets
-          sha256sum * > SHA256SUMS.txt
-          cd ..
-          
-          echo "Artifacts prepared for upload:"
-          ls -lh ./release-assets
-          
-      - name: Create GitHub Release
-        if: ${{ steps.release_check.outcome == 'success' }}
-        uses: actions/create-release@v1
-        with:
-          tag_name: ${{ env.NEW_TAG }}
-          prerelease: true
-          release_name: ${{ env.RELEASE_NAME }}
-          body: ${{ env.FULL_RELEASE_NOTES }}
-          token: ${{ secrets.MY_GITHUB_TOKEN }}
-          
-      - name: Upload Release Assets
-        if: ${{ steps.release_check.outcome == 'success' }}
-        env:
-          GH_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
-        run: |
-          echo "Uploading release assets..."
-          
-          # Upload all files in the release-assets directory
-          for file in ./release-assets/*; do
-            echo "Uploading $file"
-            gh release upload "${{ env.NEW_TAG }}" "$file" || echo "Failed to upload $file"
-          done
-          
-          echo "Upload completed!"
-          
-      - name: Verify Uploaded Assets
-        if: ${{ steps.release_check.outcome == 'success' }}
-        run: |
-          echo "Uploaded assets:"
-          gh release view "${{ env.NEW_TAG }}" --json assets -q '.assets[].name'
-
-      - name: send telegram message on push
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TELEGRAM_MESSAGE_THREAD_ID: ${{ secrets.TELEGRAM_MESSAGE_THREAD_ID }}
-        run: |
-            curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
-            -d "chat_id=$TELEGRAM_CHAT_ID" \
-            -d "message_thread_id=$TELEGRAM_MESSAGE_THREAD_ID" \
-            -d "text=Latest release: 
-            https://github.com/ShirkNeko/GKI_KernelSU_SUSFS/releases/tag/${{ env.NEW_TAG }}
-            ${{ env.RELEASE_NOTES }}"    
